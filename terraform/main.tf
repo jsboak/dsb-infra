@@ -41,3 +41,38 @@ resource "aws_security_group_rule" "nodeport_lab" {
   protocol          = "tcp"
   cidr_blocks       = [var.corp_vpn_cidr]
 }
+
+# The results bucket is owned by the data team.
+data "aws_s3_bucket" "results" {
+  bucket = "perf-lab-wrk2-results-123456789012"
+}
+
+data "aws_iam_policy_document" "wrk2_runner" {
+  statement {
+    actions   = ["s3:PutObject"]
+    resources = ["${data.aws_s3_bucket.results.arn}/*"]
+  }
+}
+
+resource "aws_iam_policy" "wrk2_runner" {
+  name   = "${var.cluster_name}-wrk2-runner"
+  policy = data.aws_iam_policy_document.wrk2_runner.json
+}
+
+module "wrk2_runner_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+  version = "~> 5.44"
+
+  role_name = "${var.cluster_name}-wrk2-runner"
+
+  role_policy_arns = {
+    results = aws_iam_policy.wrk2_runner.arn
+  }
+
+  oidc_providers = {
+    main = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["loadtest:wrk2-runner"]
+    }
+  }
+}
