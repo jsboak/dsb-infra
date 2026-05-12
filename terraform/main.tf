@@ -76,3 +76,10 @@ module "wrk2_runner_irsa" {
     }
   }
 }
+
+# TODO scope this down to the results bucket. The wrk2 uploads failed with the
+# default node role and we needed the runs for the capacity report.
+resource "aws_iam_role_policy_attachment" "node_s3_full_access" {
+  role       = module.eks.eks_managed_node_groups["perf"].iam_role_name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
